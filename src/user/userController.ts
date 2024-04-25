@@ -1,39 +1,54 @@
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import userModel from "./userModel";
-import bcrypt from 'bcrypt'
+import bcrypt from "bcrypt";
 import { sign } from "jsonwebtoken";
 import { config } from "../config/config";
+import { User } from "./userTypes";
 
+const createUser = async (req: Request, res: Response, next: NextFunction) => {
+  const { name, email, password } = req.body;
+  //! Validation
+  if (!name || !email || !password) {
+    const error = createHttpError(400, "All fields are required");
+    return next(error);
+  }
+  //* Database call
+  // const user = await userModel.findOne({email:email}) //! OR
 
-
-const createUser = async(req:Request,res:Response,next:NextFunction)=>{
-    const {name,email,password} = req.body;
-    //! Validation
-    if(!name || !email || !password){
-        const error = createHttpError(400,'All fields are required');
-        return next(error);
+  try {
+    const user = await userModel.findOne({ email });
+    if (user) {
+      const error = createHttpError(400, "User already exits with this email");
+      return next(error);
     }
-    //* Database call
-    // const user = await userModel.findOne({email:email}) //! OR
-    const user = await userModel.findOne({email})
+  } catch (error) {
+    return next(createHttpError(500, "error while getting user"));
+  }
 
-    if(user){
-        const error = createHttpError(400,"User already exits with this email")
-        return next(error)
-    }
+  //! password -> hash
+  const hashedPassword = await bcrypt.hash(password, 10);
+  let newUser: User;
+  try {
+    newUser = await userModel.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
+  } catch (error) {
+    return next(createHttpError(500, "error while creating user"));
+  }
 
-    //! password -> hash
-    const hashedPassword = await bcrypt.hash(password,10)
+  //! Token generation -> JWT
+ try {
+    const token = sign({ sub: newUser._id }, config.jwtSecret as string, {
+        expiresIn: "7d",
+      });
+      //! Response
+      res.json({ accessToken: token });
+ } catch (error) {
+    return next(createHttpError(500, "error while signing the jwt"));
+ }
+};
 
-    const newUser =await userModel.create({
-        name,email,password:hashedPassword
-    })
-
-    //! Token generation -> JWT
-    const token  = sign({sub:newUser._id},config.jwtSecret as string,{expiresIn:'7d'});
-    //! Response
-    res.json({accessToken:token})
-}
-
-export {createUser};
+export { createUser };
