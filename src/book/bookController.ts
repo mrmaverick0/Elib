@@ -43,6 +43,9 @@ const createBook = async (req: Request, res: Response, next: NextFunction) => {
     );
     console.log("bookFileUploadResult", bookFileUploadResult);
     //! upload cloudinary URL into DB
+   // @ts-ignore
+    console.log('userId',req.userId);
+    
     const newBook = await bookModel.create({
       title,
       genre,
@@ -58,6 +61,6 @@ const createBook = async (req: Request, res: Response, next: NextFunction) => {
     return next(createHttpError(500,"Error While uploading file"))
   }
 
-  console.log("uploadResult", uploadResult);
+  
 };
 export default createBook;
